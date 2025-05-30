@@ -1,13 +1,13 @@
 import streamlit as st
 import os
-from langchain_community.document_loaders import PyPDFLoader
+from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from langchain_community.llms import LlamaCpp
+from langchain.llms import LlamaCpp
 
 # Initialize session state variables
 if 'vector_store' not in st.session_state:
