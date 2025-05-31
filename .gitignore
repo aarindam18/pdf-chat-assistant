@@ -1,0 +1,23 @@
+# === Python ===
+__pycache__/
+*.pyc
+
+# === Virtual Environment ===
+venv/
+
+# === Streamlit Secrets ===
+.streamlit/secrets.toml
+
+# === Jupyter Notebooks ===
+*.ipynb
+
+# === Data / Intermediate folders ===
+29mayragdb/
+data/
+ragDB/
+model/
+
+# === Temp / Package files ===
+packages.txt
+test_1.ipynb
+test_2.ipynb

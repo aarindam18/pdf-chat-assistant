@@ -1,13 +1,15 @@
 import streamlit as st
 import os
+# Replace these imports at the top:
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain_community.llms import LlamaCpp
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.chat_models import ChatOpenAI
+
 
 # Initialize session state variables
 if 'vector_store' not in st.session_state:
@@ -25,7 +27,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for styling
+# Custom CSS for styling with improved visibility
 st.markdown("""
     <style>
     /* Main styling */
@@ -136,7 +138,7 @@ with st.sidebar:
         chunks = [page.page_content for page in pages]
         metadata_list = [page.metadata for page in pages]
         
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
         split_docs = splitter.create_documents(chunks)
         
         chunks = [doc.page_content for doc in split_docs]
@@ -179,67 +181,54 @@ with st.sidebar:
 # Main Content Area
 st.title("📚 PDF Chat Assistant")
 st.markdown("Ask questions about your uploaded PDF document")
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-
-# Initialize LLM with your exact parameters
+if not os.path.exists("model/mistral-7b-instruct-v0.2.Q4_K_M.gguf"):
+    os.makedirs("model", exist_ok=True)
+    with st.spinner("Downloading AI model (4.5GB)..."):
+        import urllib.request
+        urllib.request.urlretrieve(
+            "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+            "model/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+        )
+# Initialize LLM
 if 'llm' not in st.session_state:
-    st.session_state.llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.7,
-        max_tokens=16000,
-        verbose=True,
-        openai_api_key=api_key
+    st.session_state.llm = LlamaCpp(
+        model_path="model/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+        n_gpu_layers=40,
+        n_ctx=2048,
+        max_tokens=512,
+        verbose=False,
     )
 
-# Define the prompt exactly as in your Jupyter notebook
 # Define the prompt
 prompt_template = """
-You are an expert document analysis assistant. Your task is to provide comprehensive answers using EXCLUSIVELY the information contained in the provided context. You must NEVER use any external knowledge or information beyond what is in the context.
+You are an AI assistant. Answer the question using ONLY the relevant part of the context below.
 
-### Strict Rules:
-1. **Context-Only Policy**:
-   - Every part of your answer MUST be derived solely from the context
-   - Never add information, examples, or concepts not present in the context
-   - If context lacks details, do not supplement with your own knowledge
+Instructions:
+- Only answer the current user question.
+- Be clear, accurate, and directly based on the context.
+- If the answer isn't in the context, reply: "Sorry, I don't have information about that."
 
-2. **Answer Construction Process**:
-   a) Extract all relevant facts from context
-   b) Synthesize these facts into a base answer
-   c) Elaborate using ONLY:
-      - Additional context details
-      - Logical connections within the context
-      - Examples explicitly mentioned in context
-
-3. **Handling Unknowns**:
-   - If context contains NO relevant information: 
-        → "The document doesn't contain information to answer this question"
-   - If context has partial information: 
-        → Answer only with what exists (no extrapolation)
-
-### Context:
+Context:
 {context}
 
-### User Question:
+User Question:
 {query}
 
-### Response Structure:
-   - Concise response using only context facts
-   - Key supporting points from context
-   - Relevant examples (only if present in context)
-   - Relationships between context concepts
-   - Use bullet points for clarity
-   - Brief restatement using only context terms]
-
-### Answer:
+Answer:
 """
+
 prompt = PromptTemplate(
     input_variables=["context", "query"],
     template=prompt_template
 )
 
-# Create the chain using the pipe operator as in your Jupyter notebook
-if 'chain' not in st.session_state:
-    st.session_state.chain = prompt | st.session_state.llm
+# Create the chain
+if 'llm_chain' not in st.session_state:
+    st.session_state.llm_chain = LLMChain(
+        llm=st.session_state.llm,
+        prompt=prompt,
+        verbose=False
+    )
 
 # Main chat area
 if st.session_state.vector_store is None:
@@ -259,35 +248,26 @@ else:
         
         if query:
             with st.spinner("Analyzing document and generating response..."):
-                try:
-                    docs = st.session_state.vector_store.similarity_search(query, k=7)  # Get more context
-                    final_chunk = "\n\n".join([f"SOURCE {i+1}:\n{doc.page_content}" for i, doc in enumerate(docs)])
-                    # Generate response exactly as in your Jupyter notebook
-                    answer = st.session_state.chain.invoke({
-                        "context": final_chunk,
-                        "query": query
-                    })
-                    
-                    # Extract content from response
-                    if isinstance(answer, dict):
-                        content = answer.get("content", "not found")
-                    else:
-                        content = getattr(answer, "content", "not found")
-                    
-                    # Store conversation
-                    st.session_state.conversation.append((query, content))
-                    
-                    # Display response with styling
-                    st.markdown("<div class='question-box'>"
-                                f"<strong>QUESTION:</strong><br>{query}"
-                                "</div>", unsafe_allow_html=True)
-                    st.markdown("<div class='answer-box'>"
-                                f"<strong>ANSWER:</strong><br>{content}"
-                                "</div>", unsafe_allow_html=True)
-                    
-                except Exception as e:
-                    st.error(f"Error generating response: {str(e)}")
-                    st.session_state.conversation.append((query, "Error generating response"))
+                # Retrieve relevant context
+                docs = st.session_state.vector_store.similarity_search(query, k=5)
+                context = "\n".join([doc.page_content for doc in docs])
+                
+                # Generate response
+                answer = st.session_state.llm_chain.run({
+                    "context": context,
+                    "query": query
+                })
+                
+                # Store conversation
+                st.session_state.conversation.append((query, answer))
+                
+                # Display response with improved styling
+                st.markdown("<div class='question-box'>"
+                            f"<strong>QUESTION:</strong><br>{query}"
+                            "</div>", unsafe_allow_html=True)
+                st.markdown("<div class='answer-box'>"
+                            f"<strong>ANSWER:</strong><br>{answer}"
+                            "</div>", unsafe_allow_html=True)
 
 # Footer
 st.divider()
