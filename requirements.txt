@@ -5,3 +5,4 @@ faiss-cpu
 pypdf
 openai
 sentence-transformers
+protobuf<4.21
