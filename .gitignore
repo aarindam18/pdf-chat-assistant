@@ -18,6 +18,5 @@ ragDB/
 model/
 
 # === Temp / Package files ===
-packages.txt
 test_1.ipynb
 test_2.ipynb
