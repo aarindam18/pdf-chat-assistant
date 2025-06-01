@@ -4,5 +4,6 @@ langchain-community
 faiss-cpu
 pypdf
 openai
+langchain-openai
 sentence-transformers
 protobuf<4.21
