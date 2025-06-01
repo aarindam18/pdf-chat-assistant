@@ -141,7 +141,7 @@ with st.sidebar:
         
         chunks = [doc.page_content for doc in split_docs]
         metadata_list = [doc.metadata for doc in split_docs]
-        api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        api_key = st.secrets["OPENAI_API_KEY"]
         embedding = OpenAIEmbeddings(openai_api_key = api_key)
         vector_store = FAISS.from_documents(
             [Document(page_content=ch, metadata=md) for ch, md in zip(chunks, metadata_list)],
