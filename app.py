@@ -1,8 +1,8 @@
 import streamlit as st
 import os
+from langchain.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -143,7 +143,7 @@ with st.sidebar:
         metadata_list = [doc.metadata for doc in split_docs]
         
         embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en")
-        vector_store = Chroma.from_documents(
+        vector_store = FAISS.from_documents(
             [Document(page_content=ch, metadata=md) for ch, md in zip(chunks, metadata_list)],
             embedding
         )
