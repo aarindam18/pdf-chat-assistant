@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from langchain.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -141,8 +141,8 @@ with st.sidebar:
         
         chunks = [doc.page_content for doc in split_docs]
         metadata_list = [doc.metadata for doc in split_docs]
-        
-        embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en")
+        api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        embedding = OpenAIEmbeddings(openai_api_key = api_key)
         vector_store = FAISS.from_documents(
             [Document(page_content=ch, metadata=md) for ch, md in zip(chunks, metadata_list)],
             embedding
@@ -179,7 +179,6 @@ with st.sidebar:
 # Main Content Area
 st.title("📚 PDF Chat Assistant")
 st.markdown("Ask questions about your uploaded PDF document")
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 # Initialize LLM with your exact parameters
 if 'llm' not in st.session_state:
