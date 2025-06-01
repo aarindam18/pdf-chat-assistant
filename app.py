@@ -187,7 +187,6 @@ if 'llm' not in st.session_state:
         temperature=0.7,
         max_tokens=16000,
         verbose=True,
-        openai_api_key=api_key
     )
 
 # Define the prompt exactly as in your Jupyter notebook
